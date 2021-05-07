@@ -7,12 +7,12 @@ void monta_config(int n, int m, char tabuleiro[m + 2][n + 2], int config, int mo
 void printa_tabuleiro(int n, int m, char tabuleiro[m + 2][n + 2]);
 int seleciona_config(char const *conf);
 void preenche_corpo(int n, int m, char tabuleiro[m + 2][n + 2], int config, int i);
-void verifica_movimento(int linha, int coluna, char mov, int m, int n, char tabuleiro[m + 2][n + 2]);
+int verifica_movimento(int linha, int coluna, char mov, int m, int n, char tabuleiro[m + 2][n + 2]);
 int eh_char_possivel(char c);
 
 int main(int argc, char const *argv[])
 {
-    int m, n, config, linha, coluna;
+    int m, n, config, linha, coluna, tem_erro;
     char mov;
     char temp;
 
@@ -63,7 +63,11 @@ int main(int argc, char const *argv[])
         char tabuleiro[m + 2][n + 2];
         monta_config(n, m, tabuleiro, config, 3);
         printa_tabuleiro(n, m, tabuleiro);
-        verifica_movimento(linha, coluna, mov, m, n, tabuleiro);
+        tem_erro = verifica_movimento(linha, coluna, mov, m, n, tabuleiro);
+        if (tem_erro == 0)
+        {
+            printa_tabuleiro(n, m, tabuleiro);
+        }
     }
     return 0;
 }
@@ -83,8 +87,6 @@ int seleciona_config(char const *conf)
 void monta_config(int n, int m, char tabuleiro[m + 2][n + 2], int config, int movimento)
 {
     int i;
-
-    printf("Vai ser montado tabuleiro %d\n", config);
 
     // Primeira e ultima coluna sao sempre com asteristicos (Tomando cuidado apenas com a saida)
     for (i = 0; i < n + 2; i++)
@@ -353,27 +355,24 @@ void preenche_corpo(int n, int m, char tabuleiro[m + 2][n + 2], int config, int 
     }
 }
 
-// Retorna -1 quando tiver algum tipo de erro
-void verifica_movimento(int linha, int coluna, char mov, int m, int n, char tabuleiro[m + 2][n + 2])
+// Retorna 1 quando tiver algum tipo de erro
+int verifica_movimento(int linha, int coluna, char mov, int m, int n, char tabuleiro[m + 2][n + 2])
 {
-    // Print pra saber qual valor esta entrando na funcao
-    printf("Esta entrando: %c\n", tabuleiro[linha][coluna]);
-
     char char_atual;
-    int cont;
 
-    cont = 1;
     char_atual = tabuleiro[linha][coluna];
 
     // "-m 1 1 D"
     if (char_atual == '*' || char_atual == ' ')
     {
         printf("Voce nao pode mover * nem espacos\n");
+        return 1;
     }
 
     if (eh_char_possivel(char_atual) == 0)
     {
         printf("Essa peca nao eh valida\n");
+        return 1;
     }
     else
     {
@@ -385,27 +384,59 @@ void verifica_movimento(int linha, int coluna, char mov, int m, int n, char tabu
                 if (tabuleiro[linha][coluna] == ' ')
                 {
                     tabuleiro[linha][coluna] = char_atual;
+                    tabuleiro[linha][coluna - 1] = ' ';
+
+                    if (tabuleiro[linha - 1][coluna - 1] == char_atual)
+                    {
+                        verifica_movimento(linha - 1, coluna - 1, 'D', m, n, tabuleiro);
+                    }
+                    if (tabuleiro[linha + 1][coluna - 1] == char_atual)
+                    {
+                        verifica_movimento(linha + 1, coluna - 1, 'D', m, n, tabuleiro);
+                    }
+                    if (tabuleiro[linha][coluna - 2] == char_atual)
+                    {
+                        verifica_movimento(linha, coluna - 2, 'D', m, n, tabuleiro);
+                    }
+
                     break;
                 }
                 else if (tabuleiro[linha][coluna] != char_atual)
                 {
-                    printf("Impossivel movimentar peca %c para a Direita\n", char_atual);
+                    printf("Impossivel movimentar peca (%c) para a Direita\n", char_atual);
+                    return 1;
                     break;
                 }
             }
         }
         else if (mov == 'E')
         {
-            while ((char_atual == tabuleiro[linha][coluna--]) && coluna > 0)
+            while ((char_atual == tabuleiro[linha][coluna--]) && coluna >= 0)
             {
                 if (tabuleiro[linha][coluna] == ' ')
                 {
                     tabuleiro[linha][coluna] = char_atual;
+                    tabuleiro[linha][coluna + 1] = ' ';
+
+                    if (tabuleiro[linha][coluna + 2] == char_atual)
+                    {
+                        verifica_movimento(linha, coluna + 2, 'E', m, n, tabuleiro);
+                    }
+                    if (tabuleiro[linha + 1][coluna + 1] == char_atual)
+                    {
+                        verifica_movimento(linha + 1, coluna + 1, 'E', m, n, tabuleiro);
+                    }
+                    if (tabuleiro[linha - 1][coluna + 1] == char_atual)
+                    {
+                        verifica_movimento(linha - 1, coluna + 1, 'E', m, n, tabuleiro);
+                    }
+
                     break;
                 }
                 else if (tabuleiro[linha][coluna] != char_atual)
                 {
-                    printf("Impossivel movimentar peca %c para a Esquerda\n", char_atual);
+                    printf("Impossivel movimentar peca (%c) para a Esquerda\n", char_atual);
+                    return 1;
                     break;
                 }
             }
@@ -417,39 +448,69 @@ void verifica_movimento(int linha, int coluna, char mov, int m, int n, char tabu
                 if (tabuleiro[linha][coluna] == ' ')
                 {
                     tabuleiro[linha][coluna] = char_atual;
+                    tabuleiro[linha - 1][coluna] = ' ';
+
+                    if (tabuleiro[linha - 1][coluna + 1] == char_atual)
+                    {
+                        verifica_movimento(linha - 1, coluna + 1, 'B', m, n, tabuleiro);
+                    }
+                    if (tabuleiro[linha - 1][coluna - 1] == char_atual)
+                    {
+                        verifica_movimento(linha - 1, coluna - 1, 'B', m, n, tabuleiro);
+                    }
+                    if (tabuleiro[linha - 2][coluna] == char_atual)
+                    {
+                        verifica_movimento(linha - 2, coluna, 'B', m, n, tabuleiro);
+                    }
+
                     break;
                 }
                 else if (tabuleiro[linha][coluna] != char_atual)
                 {
-                    printf("Impossivel movimentar peca %c para Baixo\n", char_atual);
+                    printf("Impossivel movimentar peca (%c) para Baixo\n", char_atual);
+                    return 1;
                     break;
                 }
             }
         }
         else if (mov == 'C')
         {
-            while ((char_atual == tabuleiro[linha--][coluna]) && linha > 0)
+            while ((char_atual == tabuleiro[linha--][coluna]) && linha >= 0)
             {
                 if (tabuleiro[linha][coluna] == ' ')
                 {
                     tabuleiro[linha][coluna] = char_atual;
+                    tabuleiro[linha + 1][coluna] = ' ';
+
+                    if (tabuleiro[linha + 1][coluna + 1] == char_atual)
+                    {
+                        verifica_movimento(linha + 1, coluna + 1, 'C', m, n, tabuleiro);
+                    }
+                    if (tabuleiro[linha + 2][coluna] == char_atual)
+                    {
+                        verifica_movimento(linha + 2, coluna, 'C', m, n, tabuleiro);
+                    }
+                    if (tabuleiro[linha + 1][coluna - 1] == char_atual)
+                    {
+                        verifica_movimento(linha + 1, coluna - 1, 'C', m, n, tabuleiro);
+                    }
+
                     break;
                 }
                 else if (tabuleiro[linha][coluna] != char_atual)
                 {
-                    printf("Impossivel movimentar peca %c para Cima\n", char_atual);
+                    printf("Impossivel movimentar peca (%c) para Cima\n", char_atual);
+                    return 1;
                     break;
                 }
-
-                cont++;
             }
         }
         else
         {
             printf("Esse movimento nao existe!!!\n");
+            return 1;
         }
-
-        printa_tabuleiro(n, m, tabuleiro);
+        return 0;
     }
 }
 
