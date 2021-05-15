@@ -404,6 +404,8 @@ int verifica_movimento(int linha, int coluna, char mov, int m, int n, char tabul
                 else if (tabuleiro[linha][coluna] != char_atual)
                 {
                     printf("Impossivel movimentar peca (%c) para a Direita\n", char_atual);
+                    printf("tabuleiro[linha][coluna] (%c) \n", tabuleiro[linha][coluna]);
+                    printf("char_atual (%c)\n", char_atual);
                     return 1;
                     break;
                 }
@@ -436,6 +438,10 @@ int verifica_movimento(int linha, int coluna, char mov, int m, int n, char tabul
                 else if (tabuleiro[linha][coluna] != char_atual)
                 {
                     printf("Impossivel movimentar peca (%c) para a Esquerda\n", char_atual);
+                    printf("tabuleiro[linha][coluna] (%c) \n", tabuleiro[linha][coluna]);
+                    printf("coluna (%d)\n", coluna);
+                    printf("linha (%d)\n", linha);
+
                     return 1;
                     break;
                 }
