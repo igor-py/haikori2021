@@ -3,82 +3,102 @@
 #include <string.h>
 #include <ctype.h>
 
-typedef struct
-{
-    char nome; // 'a'
-    int tamanho;
-    int *colunas;
-    int *linhas; // tamanho -1
-} peca;
-
-typedef struct
-{
-    char *nome;
-    int colunas;
-    int linhas;
-    int saidas[2][2];
-    //struct peca *pecas;
-    char matriz[1000][1000];
-} tabuleiro;
-
-// peca monta_peca(char nome, int tamanho, int *col, int *lin);
-tabuleiro incrementa_tabuleiro(tabuleiro t, char *linha, int linha_atual);
+void modo_interativo();
+void modo_interativo2();
+int verifica_sim();
 
 int main(int argc, char const *argv[])
 {
 
-    // int col[3] = {1, 2, 3};
-    // int lin[3] = {1, 2, 3};
-    // peca a = monta_peca('a', 3, col, lin);
-
-    tabuleiro t = {"Teste", 3, 3, {{1, 2}, {1, 2}}, {}};
-    tabuleiro t1 = incrementa_tabuleiro(t, "***\n", 0);
-
-    for (int j = 0; j < 3; j++)
-    {
-        printf("%c\n", t1.matriz[0][j]);
-    }
+    modo_interativo2();
 
     return 0;
 }
 
-// peca monta_peca(char nome, int tamanho, int *col, int *lin)
-// {
-//     peca p = {nome, tamanho, (int *)malloc(tamanho * sizeof(int)), (int *)malloc(tamanho * sizeof(int))};
-//     for (int i = 0; i < tamanho; i++)
-//     {
-//         p.colunas[i] = col[i];
-//         p.linhas[i] = lin[i];
-//     }
-//     return p;
-// }
-
-tabuleiro incrementa_tabuleiro(tabuleiro t, char *linha, int linha_atual)
+void modo_interativo()
 {
-    for (int i = 0; linha[i] != '\n'; i++)
+    int c;
+    int last_c;
+    char escolha[1];
+    char config[2];
+    int i = 0;
+    int continua = 1;
+
+    while ((c = getchar()) != 'n' && c != EOF)
     {
-        t.matriz[linha_atual][i] = linha[i];
+        printf("c: %c\n", c);
+        printf("c2: %c\n", last_c);
+
+        if (c == 'l')
+        {
+            // Chamar a listagem dos tabuleiros
+            ;
+        }
+
+        if (c == 'c')
+        {
+
+            if (fgets(escolha, 1, stdin) != NULL)
+            {
+                printf("escolha: %s\n", escolha);
+            }
+        }
+
+        if (last_c == 'c' && c == ' ' && continua)
+        {
+            config[0] = 'c';
+        }
+
+        last_c = c;
     }
-    return t;
 }
 
-// peca *monta_todas_as_pecas(char *linha, int tamanho, int coluna_atual)
-// {
-//     char atual, anterior;
-//     peca pecas[tamanho];
-//     peca p = {malloc(sizeof(char)), 0, (int *)malloc(tamanho * sizeof(int)), (int *)malloc(tamanho * sizeof(int))};
-//     int j = 0;
+void modo_interativo2()
+{
+    char escolha[60];
 
-//     atual = linha[0];
-//     anterior = atual;
-//     for (int i = 0; linha[i] != '\n'; i++)
-//     {
-//         if (atual == anterior)
-//         {
-//             p.nome = linha[i];
-//             p.tamanho++;
-//             p.colunas[j] = coluna_atual;
+    printf("----Modo Interativo----\n\n");
 
-//         }
-//     }
-// }
+    while (fgets(escolha, 60, stdin) != NULL)
+    {
+        printf("Escolha: %s\n", escolha);
+
+        if (escolha[0] == 'l')
+        {
+            printf("Listar todas as configuracoes!!!\n");
+        }
+
+        if (escolha[0] == 'c')
+        {
+
+            if (verifica_sim() && escolha[1] == ' ' && isdigit(escolha[2]))
+            {
+                printf("Usar a configuracao %c\n", escolha[2]);
+            }
+            else
+            {
+                printf("Essa configuracao nao existe ou digitou numero de parametros invalido!!!\n");
+            }
+        }
+    }
+}
+
+int verifica_sim()
+{
+    char sim[4];
+    printf("Voce realmente quer fazer isso ??\n");
+    printf("Pois vai perder tudo feito na configuracao anterior!!!\nDigite (s) para sim e (n) para nao\n");
+
+    while (fgets(sim, 4, stdin) != NULL)
+    {
+        if (sim[0] == 's')
+        {
+            return 1;
+        }
+        else
+        {
+            break;
+        }
+    }
+    return 0;
+}
