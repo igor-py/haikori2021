@@ -4,36 +4,42 @@
 #include <ctype.h>
 
 #define CHAR_POSSIVEIS "abcdefghijklmD"
-typedef struct
-{
-    char *nome;
-    int colunas;
-    int linhas;
-    int saidas[2][2];  // eh um par de coordenadas da onde se encontra as saidas [[x1, y1], [x2, y2]]
-    int espacos[2][2]; // eh um par de coordenadas da onde se encontra o espaco vazio
-    char matriz[1000][1000];
-} tabuleiro;
+#define MSG_FALHA "Peça não pode ser movida."
 
 typedef struct
 {
     char nome; // 'a'
     int tamanho;
-    int *colunas;
-    int *linhas; // tamanho -1
+    int colunas[100];
+    int linhas[100];
 } peca;
+
+typedef struct
+{
+    char *nome;
+    int colunas;
+    int linhas;
+    int saidas[2][2]; // eh um par de coordenadas da onde se encontra as saidas [[x1, y1], [x2, y2]]
+    char matriz[1000][1000];
+    int num_pecas;
+    peca pecas[100];
+} tabuleiro;
 
 tabuleiro incrementa_tabuleiro(tabuleiro t, char *linha, int linha_atual);
 void printa_tabuleiro(tabuleiro t, int numero_tabuleiro);
 tabuleiro coloca_coordenadas(tabuleiro t);
-tabuleiro verifica_espacos(tabuleiro t);
 void modo_interativo(char *movimento, char movimentos[sizeof(long)][60], int numero_de_movimentos, tabuleiro tabuleiros[2]);
 int verifica_sim();
-int verifica_movimento(int y, int x, char mov, tabuleiro t);
-int eh_possivel_mover(tabuleiro t, int linha, int coluna);
+int verifica_movimento(int y, int x, char mov, tabuleiro *t);
 void apaga_movimentos(char movimentos[sizeof(long)][60], int tamanho);
 void tem_corpo(tabuleiro t, char peca, int linha, int coluna, int coordenadas[9]);
 int verifica_locais(tabuleiro t, char c, int locais[8]);
 peca monta_peca(char nome, int tamanho, int *col, int *lin);
+
+void carrega_tabuleiro(tabuleiro *t);
+peca carrega_peca(tabuleiro *t, char p_nome);
+void printa_pecas_tabuleiro(tabuleiro t);
+char *move_peca_tabuleiro(tabuleiro *t, char c, char m);
 
 int eh_char_possivel(char c);
 
@@ -55,8 +61,8 @@ int main(int argc, char const *argv[])
     // Lista com todos os tabuleiros
     tabuleiro tabuleiros[2];
 
-    tabuleiro t1 = {"", 0, 0, {{}, {}}, {}};
-    tabuleiro t2 = {"", 0, 0, {{}, {}}, {}};
+    tabuleiro t1 = {"", 0, 0, {{}, {}}, {}, 0, {}};
+    tabuleiro t2 = {"", 0, 0, {{}, {}}, {}, 0, {}};
 
     // Quando o usuario roda apenas o  main
     if (argc == 1)
@@ -128,9 +134,6 @@ int main(int argc, char const *argv[])
         t1 = coloca_coordenadas(t1);
         t2 = coloca_coordenadas(t2);
 
-        t1 = verifica_espacos(t1);
-        t2 = verifica_espacos(t2);
-
         tabuleiros[0] = t1;
         tabuleiros[1] = t2;
 
@@ -143,7 +146,6 @@ int main(int argc, char const *argv[])
     // Quando o usuario roda o main -f nomeArquivo.txt
     else if (argc == 3)
     {
-        printf("teste: %s\n", *(argv + 2));
         fp = fopen(*(argv + 2), "r");
         if (fp == NULL)
         {
@@ -202,15 +204,20 @@ int main(int argc, char const *argv[])
 
         if (t2.linhas == 0)
         {
-            t2.linhas = linha_atual - 1;
+            t2.linhas = linha_atual;
         }
 
         t1.nome = nome_tabuleiros[0];
         t2.nome = nome_tabuleiros[1];
 
-        printa_tabuleiro(t1, 1);
+        t1 = coloca_coordenadas(t1);
+        t2 = coloca_coordenadas(t2);
 
-        printa_tabuleiro(t2, 2);
+        tabuleiros[0] = t1;
+        tabuleiros[1] = t2;
+
+        // Entra no modo interativo
+        modo_interativo(movimento, movimentos, numero_de_movimentos, tabuleiros);
     }
 
     // Argumentos desconhecidos
@@ -233,17 +240,6 @@ tabuleiro incrementa_tabuleiro(tabuleiro t, char *linha, int linha_atual)
     return t;
 }
 
-peca monta_peca(char nome, int tamanho, int *col, int *lin)
-{
-    peca p = {nome, tamanho, (int *)malloc(tamanho * sizeof(int)), (int *)malloc(tamanho * sizeof(int))};
-    for (int i = 0; i < tamanho; i++)
-    {
-        p.colunas[i] = col[i];
-        p.linhas[i] = lin[i];
-    }
-    return p;
-}
-
 void printa_tabuleiro(tabuleiro t, int numero_tabuleiro)
 {
     int j, k;
@@ -259,13 +255,6 @@ void printa_tabuleiro(tabuleiro t, int numero_tabuleiro)
         printf("   2\n");
     }
     printf("   %s\n", t.nome);
-
-    // printa as possiveis posicoes do tabuleiro
-
-    // temporario apagar depois
-    printf("Linhas: %d\n", t.linhas);
-    printf("Colunas: %d\n\n", t.colunas);
-
     j = 0;
 
     while (j < t.linhas + 1)
@@ -310,100 +299,6 @@ tabuleiro coloca_coordenadas(tabuleiro t)
     return t;
 }
 
-tabuleiro verifica_espacos(tabuleiro t)
-{
-    // Verificar aonde se encontra os espacos possiveis de se mover e aonde fica a saida
-    int x1, x2, y1, y2;
-    x1 = -1;
-    x2 = -1;
-    y1 = -1;
-    y2 = -1;
-
-    // x1, x2 --> espaco
-    for (int linha = 2; linha < t.linhas; linha++)
-    {
-        for (int coluna = 2; coluna < t.colunas; coluna++)
-        {
-            if (t.matriz[linha][coluna] == ' ')
-            {
-                // Pras colunas
-                if (x1 != -1)
-                {
-                    x2 = coluna;
-                }
-                else
-                {
-                    x1 = coluna;
-                }
-
-                // Pras linhas
-                if (y1 != -1)
-                {
-                    y2 = linha;
-                }
-                else
-                {
-                    y1 = linha;
-                }
-            }
-        }
-    }
-
-    // Preencher as coordenadas dos espacos no tabuleiro
-    t.espacos[0][0] = x1;
-    t.espacos[1][0] = x2;
-    t.espacos[0][1] = y1;
-    t.espacos[1][1] = y2;
-
-    // Para as saidas
-    x1 = -1;
-    x2 = -1;
-    y1 = -1;
-    y2 = -1;
-
-    // x1, x2, y1, y2 --> saidas
-    for (int linha = 1; linha <= t.linhas; linha++)
-    {
-        for (int coluna = 1; coluna <= t.colunas; coluna++)
-        {
-            if ((linha == 1) || (linha == t.linhas) || (coluna == 1) || (coluna == t.colunas))
-            {
-
-                if (t.matriz[linha][coluna] == ' ')
-                {
-                    // Pras colunas
-                    if (x1 != -1)
-                    {
-                        x2 = coluna;
-                    }
-                    else
-                    {
-                        x1 = coluna;
-                    }
-
-                    // Pras linhas
-                    if (y1 != -1)
-                    {
-                        y2 = linha;
-                    }
-                    else
-                    {
-                        y1 = linha;
-                    }
-                }
-            }
-        }
-    }
-
-    // Preencher as coordenadas das saidas no tabuleiro
-    t.saidas[0][0] = x1;
-    t.saidas[1][0] = x2;
-    t.saidas[0][1] = y1;
-    t.saidas[1][1] = y2;
-
-    return t;
-}
-
 void modo_interativo(char *movimento, char movimentos[sizeof(long)][60], int numero_de_movimentos, tabuleiro tabuleiros[2])
 {
     char escolha[60];
@@ -412,12 +307,13 @@ void modo_interativo(char *movimento, char movimentos[sizeof(long)][60], int num
     int ja_escolheu_config = 0;
     int sim = 1;
     int tem_erro = 0;
+    tabuleiro t_tabuleiro;
+    tabuleiro *t_comando_p;
 
     printf("----Modo Interativo----\n");
 
     while (fgets(escolha, 60, stdin) != NULL)
     {
-        printf("Escolha: %s\n", escolha);
 
         if (escolha[0] == 'l')
         {
@@ -436,9 +332,16 @@ void modo_interativo(char *movimento, char movimentos[sizeof(long)][60], int num
             if (sim && escolha[1] == ' ' && isdigit(escolha[2]))
             {
                 usar_config = (int)escolha[2] - '0';
-                printa_tabuleiro(tabuleiros[usar_config - 1], usar_config);
+                t_tabuleiro = tabuleiros[usar_config - 1];
+                t_comando_p = &tabuleiros[usar_config - 1];
+                carrega_tabuleiro(&t_tabuleiro);
+                // Tabuleiro copia a ser chamado no comando 'p'
+                carrega_tabuleiro(t_comando_p);
+                printa_tabuleiro(t_tabuleiro, usar_config);
+                //printa_pecas_tabuleiro(t_tabuleiro);
                 ja_escolheu_config = 1;
                 apaga_movimentos(movimentos, numero_de_movimentos);
+                numero_de_movimentos = 0;
             }
             else if (sim == 0)
             {
@@ -454,7 +357,12 @@ void modo_interativo(char *movimento, char movimentos[sizeof(long)][60], int num
         {
             if (numero_de_movimentos > 0)
             {
-                printf("Chamar todas as movimentacoes ja feitas\n");
+                printa_tabuleiro(*t_comando_p, usar_config);
+                for (int tmp = 0; tmp < numero_de_movimentos; tmp++)
+                {
+                    verifica_movimento(movimentos[tmp][2] - '0', movimentos[tmp][4] - '0', movimentos[tmp][6], t_comando_p);
+                    printa_tabuleiro(*t_comando_p, usar_config);
+                }
             }
             else
             {
@@ -473,14 +381,14 @@ void modo_interativo(char *movimento, char movimentos[sizeof(long)][60], int num
 
             if (escolha[1] == ' ' && isdigit(escolha[2]) && escolha[3] == ' ' && isdigit(escolha[4]) && escolha[5] == ' ' && isupper(escolha[6]))
             {
-                tem_erro = verifica_movimento((int)escolha[2] - '0', (int)escolha[4] - '0', escolha[6], tabuleiros[usar_config - 1]);
+                tem_erro = verifica_movimento((int)escolha[2] - '0', (int)escolha[4] - '0', escolha[6], &t_tabuleiro);
 
                 if (tem_erro == 0)
                 {
                     strcpy(movimentos[numero_de_movimentos], escolha);
                     numero_de_movimentos++;
-                    printf("Movimento %d\n\n\n", numero_de_movimentos);
-                    printa_tabuleiro(tabuleiros[usar_config - 1], usar_config);
+                    printf("Movimento %d\n", numero_de_movimentos);
+                    printa_tabuleiro(t_tabuleiro, usar_config);
                 }
             }
             else
@@ -517,23 +425,13 @@ int verifica_sim()
 }
 
 // Retorna 1 quando tiver algum tipo de erro
-int verifica_movimento(int y, int x, char mov, tabuleiro t)
+int verifica_movimento(int y, int x, char mov, tabuleiro *t)
 {
     char char_atual;
-    int possivel_mover = 1;
-    int corpo[9];
-    int linha, coluna;
-    int quantidade_peca = 0;
-    int locais[8];
-    int cont = 0;
-    int k = 0;
-    int rastro = 0;
 
-    char_atual = t.matriz[y + 1][x + 1];
+    char_atual = t->matriz[y + 1][x + 1];
 
-    printf("Peca atual: %c\n\n", char_atual);
-
-    if ((y + 1 > t.linhas) || (x + 1 > t.colunas))
+    if ((y + 1 > t->linhas) || (x + 1 > t->colunas))
     {
         printf("Movimento Invalido!!!\n");
         return 1;
@@ -552,29 +450,35 @@ int verifica_movimento(int y, int x, char mov, tabuleiro t)
     }
     else
     {
-        linha = y;
-        coluna = x;
+        char *resposta;
         if (mov == 'D')
         {
-            printf("mover 1 pra direita\n");
+            resposta = move_peca_tabuleiro(t, char_atual, 'D');
         }
         else if (mov == 'E')
         {
-            printf("mover 1 pra esquerda\n");
+            resposta = move_peca_tabuleiro(t, char_atual, 'E');
         }
         else if (mov == 'B')
         {
-            printf("mover 1 pra baixo\n");
+            resposta = move_peca_tabuleiro(t, char_atual, 'B');
         }
         else if (mov == 'C')
         {
-            printf("mover 1 pra cima\n");
+            resposta = move_peca_tabuleiro(t, char_atual, 'C');
         }
         else
         {
             printf("Esse movimento nao existe!!!\n");
             return 1;
         }
+
+        if (strcmp(resposta, MSG_FALHA) == 0)
+        {
+            printf("%s\n", resposta);
+            return 1;
+        }
+
         return 0;
     }
 }
@@ -590,22 +494,6 @@ int eh_char_possivel(char c)
             return 1;
         }
     }
-    return 0;
-}
-
-// Quando eh possivel mover retorna 1
-int eh_possivel_mover(tabuleiro t, int linha, int coluna)
-{
-    if (coluna == t.espacos[0][0] && linha == t.espacos[0][1])
-    {
-        return 1;
-    }
-
-    if (coluna == t.espacos[1][0] && linha == t.espacos[1][1])
-    {
-        return 1;
-    }
-
     return 0;
 }
 
@@ -625,4 +513,138 @@ int eh_ele_mesmo(tabuleiro t, char c, int linha, int coluna)
     }
 
     return 0;
+}
+
+void printa_peca(peca p)
+{
+    printf("Peca %c\n", p.nome);
+    for (int i = 0; i < p.tamanho; i++)
+    {
+        printf("P%d\n", i);
+        printf("linha %d\n", p.linhas[i]);
+        printf("coluna %d\n", p.colunas[i]);
+        printf("\n");
+    }
+}
+
+void printa_pecas_tabuleiro(tabuleiro t)
+{
+    printf("Printa Tab");
+    for (int i = 0; i < t.num_pecas; i++)
+    {
+        printa_peca(t.pecas[i]);
+    }
+}
+
+peca carrega_peca(tabuleiro *t, char p_nome)
+{
+    peca p;
+    p.nome = p_nome;
+    p.tamanho = 0;
+    for (int i = 2; i < t->linhas; i++)
+    {
+        for (int j = 2; j < t->colunas; j++)
+        {
+            if (t->matriz[i][j] == p_nome)
+            {
+                p.linhas[p.tamanho] = i;
+                p.colunas[p.tamanho] = j;
+                p.tamanho++;
+            }
+        }
+    }
+    return p;
+}
+
+void carrega_tabuleiro(tabuleiro *t)
+{
+    char pecas_carregadas[256];
+    for (int i = 0; i < 256; i++)
+    {
+        pecas_carregadas[i] = 0;
+    }
+    t->num_pecas = 0;
+    for (int i = 0; i < 100; i++)
+    {
+        peca t_peca = {0, 0, {}, {}};
+        t->pecas[i] = t_peca;
+    }
+    for (int i = 2; i < t->linhas; i++)
+    {
+        for (int j = 2; j < t->colunas; j++)
+        {
+            if (eh_char_possivel(t->matriz[i][j]) == 1)
+            {
+                if (pecas_carregadas[t->matriz[i][j]] == 0)
+                {
+                    pecas_carregadas[t->matriz[i][j]] = 1;
+                    t->pecas[t->num_pecas] = carrega_peca(t, t->matriz[i][j]);
+                    t->num_pecas += 1;
+                }
+            }
+        }
+    }
+}
+
+int pode_mover(tabuleiro *t, peca *p, int mov_linha, int mov_coluna)
+{
+    int pode_m = 1;
+    for (int i = 0; i < p->tamanho; i++)
+    {
+        char t_pos = t->matriz[p->linhas[i] + mov_linha][p->colunas[i] + mov_coluna];
+        if (t_pos != p->nome && t_pos != ' ')
+        {
+            pode_m = 0;
+        }
+    }
+    return pode_m;
+}
+
+void move_peca(tabuleiro *t, peca *p, int mov_linha, int mov_coluna)
+{
+    for (int i = 0; i < p->tamanho; i++)
+    {
+        t->matriz[p->linhas[i]][p->colunas[i]] = ' ';
+        p->linhas[i] += mov_linha;
+        p->colunas[i] += mov_coluna;
+    }
+    for (int i = 0; i < p->tamanho; i++)
+    {
+        t->matriz[p->linhas[i]][p->colunas[i]] = p->nome;
+    }
+}
+
+char *move_peca_tabuleiro(tabuleiro *t, char c, char m)
+{
+    int mov_coluna = 0;
+    int mov_linha = 0;
+    switch (m)
+    {
+    case 'D':
+        mov_coluna = 1;
+        break;
+    case 'E':
+        mov_coluna = -1;
+        break;
+    case 'C':
+        mov_linha = -1;
+        break;
+    case 'B':
+        mov_linha = 1;
+        break;
+    }
+    peca *p;
+    for (int i = 0; i < t->num_pecas; i++)
+    {
+        if (t->pecas[i].nome == c)
+        {
+            p = &t->pecas[i];
+        }
+    }
+    if (pode_mover(t, p, mov_linha, mov_coluna) == 1)
+    {
+        move_peca(t, p, mov_linha, mov_coluna);
+        return "";
+    }
+    return "Peça não pode ser movida.";
 }
